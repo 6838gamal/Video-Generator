@@ -1,19 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AI Video Generator</title>
+<title>Video Generator</title>
 </head>
 
-<body style="text-align:center; font-family:sans-serif">
+<body style="text-align:center;font-family:sans-serif">
 
-<h2>🎬 توليد فيديو بالذكاء الاصطناعي</h2>
+<h2>🎬 توليد فيديو</h2>
 
-<input id="prompt" style="width:300px" placeholder="اكتب البرومبت هنا">
+<form id="form">
+
+<input name="prompt" placeholder="اكتب البرومبت" required>
 <br><br>
 
-<button onclick="generate()">توليد الفيديو</button>
-
+<input name="filename" placeholder="اسم الفيديو" required>
 <br><br>
+
+<button type="submit">توليد</button>
+
+</form>
+
+<br>
 
 <div id="progress"></div>
 
@@ -26,13 +33,18 @@
 
 <script>
 
-async function generate(){
+document.getElementById("form").onsubmit = async (e) => {
 
-    let prompt = document.getElementById("prompt").value
+    e.preventDefault()
 
-    let res = await fetch("/generate?prompt=" + prompt, {method:"POST"})
+    let formData = new FormData(e.target)
+
+    let res = await fetch("/generate", {
+        method: "POST",
+        body: formData
+    })
+
     let data = await res.json()
-
     checkProgress(data.job_id)
 }
 
@@ -44,7 +56,7 @@ async function checkProgress(job_id){
         let data = await res.json()
 
         document.getElementById("progress").innerText =
-            "التقدم: " + data.progress + "%"
+            "Progress: " + data.progress + "%"
 
         if(data.progress === 100){
 
@@ -62,7 +74,7 @@ async function checkProgress(job_id){
             dl.style.display = "block"
         }
 
-    }, 2000)
+    }, 1000)
 }
 
 </script>

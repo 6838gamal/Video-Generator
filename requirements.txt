@@ -1,5 +1,12 @@
 fastapi
 uvicorn 
-huggingface_hub
-python-multipart
+#huggingface_hub
+#python-multipart
 jinja2
+
+
+diffusers
+transformers
+accelerate
+torch
+
