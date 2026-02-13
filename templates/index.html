@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Video Generator</title>
+</head>
+
+<body style="text-align:center; font-family:sans-serif">
+
+<h2>🎬 توليد فيديو بالذكاء الاصطناعي</h2>
+
+<input id="prompt" style="width:300px" placeholder="اكتب البرومبت هنا">
+<br><br>
+
+<button onclick="generate()">توليد الفيديو</button>
+
+<br><br>
+
+<div id="progress"></div>
+
+<br>
+
+<video id="video" width="500" controls style="display:none"></video>
+
+<br>
+<a id="download" style="display:none">تحميل الفيديو</a>
+
+<script>
+
+async function generate(){
+
+    let prompt = document.getElementById("prompt").value
+
+    let res = await fetch("/generate?prompt=" + prompt, {method:"POST"})
+    let data = await res.json()
+
+    checkProgress(data.job_id)
+}
+
+async function checkProgress(job_id){
+
+    let interval = setInterval(async () => {
+
+        let res = await fetch("/progress/" + job_id)
+        let data = await res.json()
+
+        document.getElementById("progress").innerText =
+            "التقدم: " + data.progress + "%"
+
+        if(data.progress === 100){
+
+            clearInterval(interval)
+
+            let videoUrl = "/video/" + data.video
+
+            let video = document.getElementById("video")
+            video.src = videoUrl
+            video.style.display = "block"
+
+            let dl = document.getElementById("download")
+            dl.href = videoUrl
+            dl.innerText = "تحميل الفيديو"
+            dl.style.display = "block"
+        }
+
+    }, 2000)
+}
+
+</script>
+
+</body>
+</html>

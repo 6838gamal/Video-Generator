@@ -1,20 +1,18 @@
 import os
 import uuid
+import asyncio
 import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse, HTMLResponse
-from pydantic import BaseModel
+from fastapi import FastAPI, BackgroundTasks
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 from huggingface_hub import InferenceClient
 
-# -------------------------
-# إعداد التطبيق
-# -------------------------
 app = FastAPI()
 
-HF_TOKEN = os.getenv("HF_TOKEN")
+templates = Jinja2Templates(directory="templates")
 
-if not HF_TOKEN:
-    raise ValueError("Please set HF_TOKEN environment variable")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 client = InferenceClient(
     provider="fal-ai",
@@ -24,99 +22,78 @@ client = InferenceClient(
 OUTPUT_DIR = "videos"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-
-# -------------------------
-# Model
-# -------------------------
-class VideoRequest(BaseModel):
-    prompt: str
+# تخزين حالة التقدم
+jobs = {}
 
 
 # -------------------------
-# توليد الفيديو
+# الصفحة الرئيسية
 # -------------------------
-@app.post("/generate-video")
-async def generate_video(request: VideoRequest):
-
-    file_name = f"{uuid.uuid4()}.mp4"
-    file_path = os.path.join(OUTPUT_DIR, file_name)
-
-    video = client.text_to_video(
-        request.prompt,
-        model="Wan-AI/Wan2.2-TI2V-5B",
-    )
-
-    with open(file_path, "wb") as f:
-        f.write(video)
-
-    return {
-        "preview_url": f"http://127.0.0.1:8000/preview/{file_name}",
-        "download_url": f"http://127.0.0.1:8000/download/{file_name}"
-    }
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 # -------------------------
-# صفحة تشغيل الفيديو
+# إنشاء مهمة توليد فيديو
 # -------------------------
-@app.get("/preview/{file_name}")
-async def preview_video(file_name: str):
+@app.post("/generate")
+async def generate(prompt: str, background_tasks: BackgroundTasks):
 
-    html = f"""
-    <html>
-        <body style="background:black;text-align:center;">
-            <video width="720" controls autoplay>
-                <source src="/stream/{file_name}" type="video/mp4">
-            </video>
-        </body>
-    </html>
-    """
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {"progress": 0, "video": None}
 
-    return HTMLResponse(html)
+    background_tasks.add_task(generate_video_task, job_id, prompt)
+
+    return {"job_id": job_id}
 
 
 # -------------------------
-# Streaming الفيديو
+# مهمة التوليد
 # -------------------------
-@app.get("/stream/{file_name}")
-async def stream_video(file_name: str):
+async def generate_video_task(job_id, prompt):
 
-    file_path = os.path.join(OUTPUT_DIR, file_name)
+    try:
+        jobs[job_id]["progress"] = 20
 
-    if not os.path.exists(file_path):
-        raise HTTPException(404, "Video not found")
+        file_name = f"{job_id}.mp4"
+        file_path = os.path.join(OUTPUT_DIR, file_name)
 
-    def iterfile():
-        with open(file_path, "rb") as f:
-            yield from f
+        video = client.text_to_video(
+            prompt,
+            model="Wan-AI/Wan2.2-TI2V-5B",
+        )
 
-    return StreamingResponse(iterfile(), media_type="video/mp4")
+        jobs[job_id]["progress"] = 80
 
+        with open(file_path, "wb") as f:
+            f.write(video)
 
-# -------------------------
-# تحميل الفيديو
-# -------------------------
-@app.get("/download/{file_name}")
-async def download_video(file_name: str):
+        jobs[job_id]["progress"] = 100
+        jobs[job_id]["video"] = file_name
 
-    file_path = os.path.join(OUTPUT_DIR, file_name)
-
-    if not os.path.exists(file_path):
-        raise HTTPException(404, "Video not found")
-
-    return StreamingResponse(
-        open(file_path, "rb"),
-        media_type="video/mp4",
-        headers={"Content-Disposition": f"attachment; filename={file_name}"}
-    )
+    except:
+        jobs[job_id]["progress"] = -1
 
 
 # -------------------------
-# تشغيل السيرفر عبر python app.py
+# فحص التقدم
+# -------------------------
+@app.get("/progress/{job_id}")
+async def progress(job_id: str):
+    return jobs.get(job_id, {})
+
+
+# -------------------------
+# عرض الفيديو
+# -------------------------
+@app.get("/video/{file_name}")
+async def get_video(file_name: str):
+    return FileResponse(os.path.join(OUTPUT_DIR, file_name))
+
+
+# -------------------------
+# تشغيل السيرفر
 # -------------------------
 if __name__ == "__main__":
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
