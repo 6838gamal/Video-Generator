@@ -61,7 +61,7 @@ async function checkProgress(job_id){
 
         if(data.progress === -1){
             clearInterval(interval)
-            document.getElementById("stage").innerText = "حدث خطأ أثناء التوليد"
+            document.getElementById("stage").innerText = "خطأ أثناء التوليد: " + data.stage
         }
     }, 1000)
 }
