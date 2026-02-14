@@ -3,67 +3,52 @@
 <head>
 <title>Video Generator</title>
 </head>
-
 <body style="text-align:center;font-family:sans-serif">
 
-<h2>🎬 توليد فيديو</h2>
+<h2>🎬 توليد فيديو عبر fal.ai</h2>
 
 <form id="form">
-
-<input name="prompt" placeholder="اكتب البرومبت" required>
-<br><br>
-
-<input name="filename" placeholder="اسم الفيديو" required>
-<br><br>
-
+<input name="prompt" placeholder="اكتب البرومبت" required><br><br>
+<input name="filename" placeholder="اسم الفيديو" required><br><br>
 <button type="submit">توليد</button>
-
 </form>
 
 <br>
-
-<div id="progress"></div>
+<div style="width:500px;margin:auto;background:#eee;height:25px;border-radius:5px;">
+    <div id="progress-bar" style="width:0%;height:25px;background:#4caf50;border-radius:5px;text-align:center;color:white;">
+        0%
+    </div>
+</div>
+<div id="stage" style="margin-top:10px;font-weight:bold;"></div>
 
 <br>
-
 <video id="video" width="500" controls style="display:none"></video>
-
 <br>
 <a id="download" style="display:none">تحميل الفيديو</a>
 
 <script>
-
 document.getElementById("form").onsubmit = async (e) => {
-
     e.preventDefault()
-
     let formData = new FormData(e.target)
-
-    let res = await fetch("/generate", {
-        method: "POST",
-        body: formData
-    })
-
+    let res = await fetch("/generate", { method:"POST", body: formData })
     let data = await res.json()
     checkProgress(data.job_id)
 }
 
 async function checkProgress(job_id){
-
     let interval = setInterval(async () => {
-
         let res = await fetch("/progress/" + job_id)
         let data = await res.json()
 
-        document.getElementById("progress").innerText =
-            "Progress: " + data.progress + "%"
+        let bar = document.getElementById("progress-bar")
+        bar.style.width = data.progress + "%"
+        bar.innerText = data.progress + "%"
+
+        document.getElementById("stage").innerText = data.stage || ""
 
         if(data.progress === 100){
-
             clearInterval(interval)
-
             let videoUrl = "/video/" + data.video
-
             let video = document.getElementById("video")
             video.src = videoUrl
             video.style.display = "block"
@@ -74,10 +59,12 @@ async function checkProgress(job_id){
             dl.style.display = "block"
         }
 
+        if(data.progress === -1){
+            clearInterval(interval)
+            document.getElementById("stage").innerText = "حدث خطأ أثناء التوليد"
+        }
     }, 1000)
 }
-
 </script>
-
 </body>
 </html>
