@@ -1,158 +1,88 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8" />
-<title>AI Video Generator</title>
+    <title>AI Video Generator</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            font-family: Arial;
+            color: white;
+            text-align: center;
+            padding: 40px;
+        }
 
-<style>
-body {
-    margin:0;
-    font-family:Poppins;
-    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color:white;
-}
+        .box {
+            background: rgba(255,255,255,0.08);
+            padding: 30px;
+            border-radius: 20px;
+            width: 400px;
+            margin: auto;
+            backdrop-filter: blur(10px);
+        }
 
-.container {
-    width:500px;
-    backdrop-filter: blur(20px);
-    background: rgba(255,255,255,0.05);
-    padding:30px;
-    border-radius:20px;
-    box-shadow:0 0 40px rgba(0,0,0,0.5);
-}
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: none;
+        }
 
-h1 {
-    text-align:center;
-    margin-bottom:20px;
-}
+        button {
+            background: #00c6ff;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
 
-textarea {
-    width:100%;
-    height:100px;
-    border:none;
-    border-radius:12px;
-    padding:15px;
-    resize:none;
-    outline:none;
-}
+        video {
+            margin-top: 20px;
+            border-radius: 15px;
+            width: 100%;
+        }
+    </style>
 
-button {
-    width:100%;
-    margin-top:15px;
-    padding:15px;
-    border:none;
-    border-radius:12px;
-    background:linear-gradient(45deg,#00c6ff,#0072ff);
-    color:white;
-    font-size:16px;
-    cursor:pointer;
-}
-
-.progress-bar {
-    width:100%;
-    background:rgba(255,255,255,0.1);
-    border-radius:10px;
-    margin-top:20px;
-}
-
-.progress {
-    height:15px;
-    width:0%;
-    border-radius:10px;
-    background:linear-gradient(45deg,#00ffcc,#00c6ff);
-    transition:0.5s;
-}
-
-video {
-    width:100%;
-    margin-top:20px;
-    border-radius:12px;
-}
-</style>
 </head>
-
 <body>
 
-<div class="container">
-    <h1>🎬 AI Video Generator</h1>
+<div class="box">
 
-    <textarea id="prompt" placeholder="Enter your video prompt..."></textarea>
-    <button onclick="generate()">Generate Video</button>
+<h2>🎬 AI Video Generator</h2>
 
-    <div class="progress-bar">
-        <div class="progress" id="progress"></div>
-    </div>
+<form action="/generate" method="post">
 
-    <video id="preview" controls style="display:none"></video>
+<textarea name="prompt" placeholder="أدخل وصف المشهد" required></textarea>
 
-    <a id="download" style="display:none">
-        <button>Download Video</button>
-    </a>
+<input type="number" name="duration" placeholder="مدة الفيديو بالثواني" required>
+
+<button type="submit">Generate Video</button>
+
+</form>
+
+{% if error %}
+<p style="color:red;">{{ error }}</p>
+{% endif %}
+
+{% if video_file %}
+<h3>✅ الفيديو الناتج</h3>
+
+<video controls>
+    <source src="/video/{{ video_file }}">
+</video>
+
+<br><br>
+
+<a href="/download/{{ video_file }}">
+<button>تحميل الفيديو</button>
+</a>
+
+{% endif %}
 
 </div>
 
-<script>
-
-let currentTask = null;
-
-async function generate(){
-
-    const prompt = document.getElementById("prompt").value;
-
-    const form = new FormData();
-    form.append("prompt", prompt);
-
-    const res = await fetch("/generate", {
-        method:"POST",
-        body: form
-    });
-
-    const data = await res.json();
-    currentTask = data.task_id;
-
-    checkStatus();
-}
-
-async function checkStatus(){
-
-    if(!currentTask) return;
-
-    const res = await fetch(`/status/${currentTask}`);
-    const data = await res.json();
-
-    if(data.progress){
-        document.getElementById("progress").style.width = data.progress + "%";
-    }
-
-    if(data.status === "completed"){
-
-        const video = document.getElementById("preview");
-        video.src = `/download/${currentTask}`;
-        video.style.display = "block";
-
-        const dl = document.getElementById("download");
-        dl.href = `/download/${currentTask}`;
-        dl.style.display = "block";
-
-        return;
-    }
-
-    if(data.status === "error"){
-        alert("Error: " + data.message);
-        return;
-    }
-
-    setTimeout(checkStatus, 2000);
-}
-
-</script>
-
 </body>
 </html>
-
